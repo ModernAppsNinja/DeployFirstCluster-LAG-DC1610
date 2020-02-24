@@ -1,199 +1,137 @@
-**THIS GUIDE IS UNDER DEVELOPMENT AND MAY NOT BE FUNCTIONAL - THIS MESSAGE WILL BE REMOVED WHEN THE GUIDE IS READY FOR USE. IF YOU HAVE ANY QUESTIONS, PLEASE OPEN AN ISSUE TICKET. IF YOU WOULD LIKE TO CONTRIBUTE TO THIS GUIDE, PLEASE SUBMIT A PR WITH YOUR UPDATES, THANK YOU.** 
+# Deploy First PKS Cluster
 
-**PLEASE DO NOT REMOVE ANYTHING ABOVE THIS LINE UNTIL YOUR GUIDE IS COMPLETE AND VALIDATED FOR END USER CONSUMPTION** 
+## Step 1: Create UAA Account for PKS User
 
-## ModernApps.ninja starter guide template 
+**Note: If you completed your PKS installation using the concourse pipeline, or if you started with a PksInstalled lab template, the UAA account has already been created for you by the pipeline, and you can skip to step 2. Please review Step1 so you have an understanding of how to create UAA accounts, as this is a regular, ongoing task for PKS administration that needs to be done using the manual procedure documented here to add additional user accounts after initial installation.**
 
-Please reference the content below for formatting examples, and replace with your desired content.
-# Lab Excercise Page Syle Template - 1st level - Main Header
+1.1 Login to Ops Manager UI, Click on the `Enterprise PKS` tile and then click on the `Credentials` tab, look for `Pks Uaa Management Admin Client` , click `Link to Credential`
 
-**Contents:**
+- From the control center, open a browser and navigate to https://opsman.corp.local
+- User name: admin
+- Password: VMware1!
 
-- [Step 1: ]()
-- [Step 2: ]()
-- [Step 3: ]()
-- [Step 4: ]()
-- [Step 5: ]()
-- [Next Steps]()
-
-## Step 1: 2nd level header, steps often have multiple substeps and subsections
-
-1.1 Uses dotted decimal numbering. This sentence 1.1 is a substep of step 1. Use a single decimal format for each substep that itself does not have other substeps. For substeps that have their own substeps, use a subsection format shown in steps 1.2 and 1.3
-
-This format is intended to find an optimal balance of usability for the user and flexibility and simplicity for content developers. As this paragraph demonstrates, its perfectly fine to add prose inline within each step as needed to sufficiently explain the step, keeping in mind that it is crucial for user experience to keep the document streamlined, and so recommend liberal use of hidden and expandable section blocks as shown below
-
-<details><summary>Click to expand</summary>
-
-If you have any long text sections such as detailed explanations, code examples, configuration files, etc, please wrap them in expanding sections as shown here.
-
-Keep in mind this template is optimized for Lab Exercise guides which generally include lots of tasks that the reader needs to do. 
-
-Also please place all images inside expanding blocks, further details about images will be shown in step 1.4 below
-
+<details><summary>Screenshot 1.1 </summary>
+<img src="images/2018-10-24-05-19-50.png">
 </details>
 <br/>
 
-1.2 Minor subsection headers
+1.2 Copy the value of the secret to the clipboard as shown in the Screenshot below
 
-1.2.1 if you have a substep that includes its own substeps, you need a subsection. This style guide offers two options for subsection handling, the minor subsection format shown here in step 1.2, and the major subsection format shown in step 1.3
-
-### 1.3 Major Subsection Headers
-
-Use major subsection headers whenever they are a better fit for the flow of your document. It is fine to use both minor and major subsection styles within the same document, so long as the overall flow and organization of the document make sense to the reader
-
-The rest of the text below is sample text copied from a lab exercise guide that uses this style
-
-1.3.1 Make a copy of the `frontend-deployment_all_k8s.yaml` file, save it as `frontend-deployment_ingress.yaml`
-
-Example:
-`cp frontend-deployment_all_k8s.yaml frontend-deployment_ingress.yaml`
-
-1.3.2 Get the URL of your smarcluster with the following command, be sure to replace 'afewell-cluster' with the name of your cluster:
-
-``` bash
-vke cluster show afewell-cluster | grep Address
-```
-
-<details><summary>Screenshot 1.3.2</summary>
-<img src="Images/2018-10-20-15-45-19.png">
+<details><summary>Screenshot 1.2 </summary>
+<img src="images/2018-10-24-05-21-27.png">
 </details>
 <br/>
 
-1.3.3 Edit the `frontend-deployment_ingress.yaml` file, near the bottom of the file in the ingress spec section, change the value for spec.rules.host to URL for your smartcluster as shown in the following snippet:
+1.3 From the control center desktop, open putty to connect to ubuntu@cli-vm and establish a connection with the UAA service
 
-NOTE: Be sure to replace the URL shown here with the URL for your own smartcluster
+- From the control center desktop, open putty and open a ssh connection to `ubuntu@cli-vm`. Login with password: `VMware1!`
 
-``` bash
-spec:
-  rules:
-  - host: afewell-cluster-69fc65f8-d37d-11e8-918b-0a1dada1e740.fa2c1d78-9f00-4e30-8268-4ab81862080d.vke-user.com
-    http:
-      paths:
-      - backend:
-          serviceName: planespotter-frontend
-          servicePort: 80
+<details><summary>Screenshot 1.3.1</summary>
+<img src="Images/2019-08-15-00-55-15.png">
+</details>
+<br>
+
+- From the `cli-vm` CLI, target your UAA server and request a token with the following commands. (Be sure to replace the string `LtrWeSarpeGbnM_h0kJB5Ddxy0emt5qr` with the secret that you gathered in the previous step 1.2)
+
+```bash:
+uaac target https://pks.corp.local:8443 --skip-ssl-validation
+uaac token client get admin -s LtrWeSarpeGbnM_h0kJB5Ddxy0emt5qr
 ```
 
-<details><summary>Click to expand to see the full contents of frontend-deployment_ingress.yaml</summary>
-
-When reviewing the file contents below, observe that it includes a ClusterIP service spec which only provides an IP address that is usable for pod-to-pod communications in the cluster. The file also includes an ingress spec which implements the default VKE ingress controller.
-
-In the following steps after you deploy the planespotter-frontend with ingress controller, you will be able to browse from your workstation to the running planespotter app in your VKE environment even though you have not assigned a nat or public IP for the service.
-
-Ingress controllers act as a proxies, recieving http/s requests from external clients and then based on the URL hostname or path, the ingress controller will proxy the request to the corresponding back-end service. For example mysite.com/path1 and mysite.com/path2 can be routed to different backing services running in the kubernetes cluster.
-
-In the file below, no rules are specified to different paths and so accordingly, all requests sent to the host defined in the spec, your VKE SmartCluster URL, will be proxied by the ingress controller to the planespotter-frontend ClusterIP service also defined in the frontend-deployment_ingress.yaml file
-
-``` bash
----
-apiVersion: apps/v1beta1
-kind: Deployment
-metadata:
-  name: planespotter-frontend
-  namespace: planespotter
-  labels:
-    app: planespotter-frontend
-    tier: frontend
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: planespotter-frontend
-  template:
-    metadata:
-      labels:
-        app: planespotter-frontend
-        tier: frontend
-    spec:
-      containers:
-      - name: planespotter-fe
-        image: yfauser/planespotter-frontend:d0b30abec8bfdbde01a36d07b30b2a3802d9ccbb
-        imagePullPolicy: IfNotPresent
-        env:
-        - name: PLANESPOTTER_API_ENDPOINT
-          value: planespotter-svc
-        - name: TIMEOUT_REG
-          value: "5"
-        - name: TIMEOUT_OTHER
-          value: "5"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: planespotter-frontend
-  namespace: planespotter
-  labels:
-    app: planespotter-frontend
-spec:
-  ports:
-    # the port that this service should serve on
-    - port: 80
-  selector:
-    app: planespotter-frontend
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: planespotter-frontend
-  namespace: planespotter
-spec:
-  rules:
-  - host: afewell-cluster-69fc65f8-d37d-11e8-918b-0a1dada1e740.fa2c1d78-9f00-4e30-8268-4ab81862080d.vke-user.com
-    http:
-      paths:
-      - backend:
-          serviceName: planespotter-frontend
-          servicePort: 80
-```
-
+<details><summary>Screenshot 1.3.2 </summary>
+<img src="Images/2019-08-15-00-57-42.png">
 </details>
 <br/>
 
-1.3.4 Run the updated planespotter-frontend app and verify deployment with the following commands. Make note of the external IP address/hostname shown in the output of `kubectl get services`
+- Alternatively, you can use SSL to authenticate and encrypt the traffic from cli-vm to the bosh pks api: 
 
-``` bash
-kubectl create -f frontend-deployment_ingress.yaml
-kubectl get pods
-kubectl get deployments
-kubectl get services
-kubectl get ingress
-kubectl describe ingress
+<details><summary>Click here to see alternative instructions to authenticate with the ssl certificate rather than the token</summary>
+
+ In the cli-vm client, create a new folder in your user directory called pksapi-cert. Create the certificate file pksapi.crt file and paste the PKS api certificate downloaded from the PKS tile > PKS API > Certificate field.
+```bash:
+vi ~/pksapi-cert/pksapi.crt
+i for insert
+right mouse click to paste the certificate
+```
+From the `cli-vm` CLI, target your UAA server and request a token with the following commands. (Be sure to replace the string `LtrWeSarpeGbnM_h0kJB5Ddxy0emt5qr` with the secret that you gathered in the previous step 1.2)
+
+```bash:
+uaac target https://pks.corp.local:8443 --ca-cert ~/pksapi-cert/pksapi.crt
+uaac token client get admin -s LtrWeSarpeGbnM_h0kJB5Ddxy0emt5qr
 ```
 
-<details><summary>Screenshot 1.3.4</summary>
-<img src="Images/2018-10-20-16-11-14.png">
 </details>
+</br>
 
-1.3.5 Open a browser and go to the url of your VKE SmartCluster to verify that planespotter-frontend is externally accessible with the LoadBalancer service
+1.4 From `cli-vm` putty session, enter the following commands to create a UAA account and assign admin rights to new user `pks-admin`:
 
-<details><summary>Screenshot 5.5.5</summary>
-<img src="Images/2018-10-20-16-26-46.png">
+```bash:
+uaac user add pksadmin --emails pksadmin@corp.local -p VMware1!
+uaac member add pks.clusters.admin pksadmin
+```
+
+<details><summary>Screenshot 1.4</summary><img src="images/2018-12-22-13-44-41.png"></details><br>
+
+## Step 2 Login to PKS CLI and Create Cluster
+
+2.1 From `cli-vm`, Login to the PKS CLI with the following command:
+
+```bash
+pks login -a pks.corp.local -u pksadmin -p VMware1! --skip-ssl-validation
+```
+<details><summary>Screenshot 2.1</summary>
+<img src="Images/2019-11-21-02-29-59.png">
+</details><br>
+
+- Alternatively, just like you did to secure the communications between opsman and the PKS api server in the above steps, you can use SSL to authenticate and encrypt the traffic from the cli vm to the bosh pks api server. In the cli vm, create a new folder in your user directory called pksapi-cert. Create the certificate file pksapi.crt file and paste the PKS api certificate downloaded from the PKS tile > PKS API > Certificate field. 
+From `cli-vm`, Login to the PKS CLI with the following command:
+
+```bash
+pks login -a pks.corp.local -u pksadmin --ca-cert ~/pksapi-cert/pksapi.crt
+```
+
+2.2 From `cli-vm`, verify there are no existing clusters
+
+```bash
+pks clusters
+```
+
+<details><summary>Screenshot 2.2</summary>
+<img src="images/2019-01-09-23-49-16.png">
+</details>
+<br>
+
+ 2.3 Display available plans
+
+ ```bash
+ pks plans
+ ```
+
+<details><summary>Screenshot 2.3</summary>
+<img src="Images/2019-11-21-10-26-59.png">
+</details>
+<br>
+
+ 2.4 Create a Kubernetes cluster
+
+```bash
+pks create-cluster my-cluster --external-hostname my-cluster.corp.local --plan small
+```
+
+_Note: It could take ~40 minutes for the cluster to deploy if you are using the onecloud labs, you will not be able to do any lab guides that require your kubernetes until the cluster deployment status is `succeeded`_
+
+_Also, it may be interesting for you to look at the `Tasks` menu in vCenter to observe some of the vSphere tasks that occur on cluster creation_
+
+<details><summary>Screenshot 2.4 </summary>
+<img src="images/2018-10-24-06-00-15.png">
 </details>
 <br/>
 
-1.3.6 Clean up the planespotter-frontend components and verify with the following commands:
+2.5 Enter the command `pks clusters my-cluster` to check on your cluster deployment status, once your cluster deployment has completed, the _Status_ column should say `succeeded` as shown in the following screenshot
 
-``` bash
-kubectl delete -f frontend-deployment_ingress.yaml
-kubectl get pods
-kubectl get deployments
-kubectl get services
-kubectl get ingress
-```
-
-<details><summary>Screenshot 5.5.6</summary>
-<img src="Images/2018-10-20-16-32-19.png">
+<details><summary>Screenshot 2.5 </summary>
+<img src="images/2018-10-24-06-00-15.png">
 </details>
 <br/>
 
-## Next Steps
-
-This lab provided an introductory overview of Kubernetes operations. Additional topics such as persistent volumes, network policy, config maps, stateful sets and more will be covered in more detail in the ongoing labs.
-
-If you are following the PKS Ninja cirriculum, [click here to proceed to the next lab](../Lab2-PksInstallationPhaseOne). As you proceed through the remaining labs you will learn more advanced details about Kubernetes using additional planespotter app components as examples and then deploy the complete planespotter application on a PKS environment.
-
-If you are not following the PKS Ninja cirriculum and would like to deploy the complete planespotter app on VKE, you can find [complete deployment instructions here](https://github.com/Boskey/run_kubernetes_with_vmware)
-
-### Thank you for completing the Introduction to Kubernetes Lab!
-
-### [Please click here to proceed to Lab2: PKS Installation Phase 1](../Lab2-PksInstallationPhaseOne)
+**You have now completed your first cluster deployment, please return to your course guide for details on additional steps and exercises for your course**
