@@ -15,6 +15,7 @@
 </details>
 <br/>
 
+
 1.2 Copy the value of the secret to the clipboard as shown in the Screenshot below
 
 <details><summary>Screenshot 1.2 </summary>
